@@ -22,9 +22,7 @@ VERIFICATION_ISSUE_TRACKER_FILENAME = 'verification_issue_tracker.txt'
 
 
 class Player:
-	"""
-	Represents the player as indicated in the spreadsheet.
-	"""
+	""" Represents the player as indicated in the spreadsheet. """
 	def __init__(self, first_name, surname, rating, fide_id, title):
 		self.__name = surname + ', ' + first_name
 		self.__rating = str(rating)
@@ -47,6 +45,10 @@ class Player:
 class PlayerVerifier:
 	""" Incorporates the verification logic. """
 	def __init__(self, player):
+		"""
+		Constructs a PlayerVerifier.
+		:param player: the player to verify.
+		"""
 		self.__player = player
 		self.__found_mistake = False
 		self.__fide_soup = None
@@ -77,11 +79,10 @@ class PlayerVerifier:
 	def _verify_name(self):
 		true_name = self.__fide_soup.title.text
 		if self.__player.get_name().lower() != true_name.lower():
-			self._log_issue(self.__player.get_name(), 'name', f'FIDE says {true_name}\n')
+			self._log_issue(self.__player.get_name(), 'name', f'FIDE says {true_name}')
 
 	def _verify_rating(self):
-		true_rating = self.__fide_soup.find('div', class_='profile-top-rating-data profile-top-rating-data_gray').contents[
-			-1].text.strip()
+		true_rating = self.__fide_soup.find('div', class_='profile-top-rating-data profile-top-rating-data_gray').contents[-1].text.strip()
 		if self.__player.get_rating() != true_rating:
 			self._log_issue(self.__player.get_rating(), 'rating', f'FIDE says {true_rating}')
 
@@ -105,6 +106,7 @@ class PlayerVerifier:
 	def verify_player(self, verbose=False):
 		"""
 		Verifies the player's name, rating, title.
+		:param verbose: determines whether the debugging information should be printed.
 		"""
 		try:
 			self._retrieve_soup()
