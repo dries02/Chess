@@ -2,15 +2,14 @@ import pandas as pd
 import requests
 import math
 from bs4 import BeautifulSoup
-"""
-From Alice in Wonderland:
-	"Beautiful Soup, so rich and green,
-	Waiting in a hot tureen!
-	Who for such dainties would not stoop?
-	Soup of the evening, beautiful Soup!"
+""" From Alice in Wonderland:
+"Beautiful Soup, so rich and green,
+Waiting in a hot tureen!
+Who for such dainties would not stoop?
+Soup of the evening, beautiful Soup!"
 """
 
-# Rename these constants based on the spreadsheet layout.
+# TODO Rename these constants based on the spreadsheet layout.
 PARTICIPANTS_FILENAME = 'artificial_fide_confirmation.xlsx'
 FIRSTNAME_COLNAME = 'First name'
 SURNAME_COLNAME = 'Last name'
@@ -19,6 +18,18 @@ ID_COLNAME = 'FIDE ID'
 TITLE_COLNAME = 'FIDE title'
 FIDE_WEBPAGE = 'https://ratings.fide.com/profile/'
 VERIFICATION_ISSUE_TRACKER_FILENAME = 'verification_issue_tracker.txt'
+# TODO map typeform abbreviations to FIDE? Implement in code
+ABBREVIATION_TO_TITLE = {
+	"GM": "Grandmaster",
+	"IM": "International Master",
+	"FM": "FIDE Master",
+	"CM": "Candidate Master",
+	"WGM": "Woman Grandmaster",
+	"WIM": "Woman International Master",
+	"WFM": "Woman FIDE Master",
+	"WCM": "Woman Candidate Master",
+	"No title": "None"
+}
 
 
 class Player:
@@ -60,21 +71,33 @@ class PlayerVerifier:
 		:param player_property_name: the type of player property.
 		:param issue: the description of the problem.
 		"""
-		issue_description = f'reported {reported_player_property} as their {player_property_name}, but {issue}'
+		issue_description = f'reported {reported_player_property} as their {player_property_name}, but {issue}.'
 		log_verification_issue(self.__player.get_name(), issue_description)
 		self.__found_mistake = True
 
 	def _retrieve_soup(self):
 		"""
 		Retrieves the soup associated with the provided FIDE ID.
-		:raises requests.exceptions.RequestException: The soup associated with the provided FIDE ID was not found.
+		:return: True iff the soup was retrieved from FIDE.
 		"""
 		url = FIDE_WEBPAGE + self.__player.get_fide_id()
 		response = requests.get(url)
 		if not response.ok:
 			self._log_issue(self.__player.get_fide_id(), 'ID', f'this could not be retrieved. Error code = {response.status_code}')
-			raise requests.exceptions.RequestException
+			return False
 		self.__fide_soup = BeautifulSoup(response.text, 'html.parser')
+		return True
+
+	def _validate_soup(self):
+		"""
+		Validates the soup associated with the provided FIDE ID.
+		:return: True iff there exists a player associated with the FIDE ID.
+		"""
+		target_div = self.__fide_soup.find('div', class_='row no-gutters').text.strip()
+		if target_div == 'No record found please check ID number':
+			self._log_issue(self.__player.get_fide_id(), 'ID', 'this is not associated with a player')
+			return False
+		return True
 
 	def _verify_name(self):
 		true_name = self.__fide_soup.title.text
@@ -95,7 +118,7 @@ class PlayerVerifier:
 		if self.__player.get_title() != true_title and is_missing_title(self.__player.get_title()) != is_missing_title(true_title):
 			self._log_issue(self.__player.get_title(), 'title', f'FIDE says {true_title}')
 
-	def _check_contains_mistake(self, verbose):
+	def _check_found_mistake(self, verbose):
 		"""
 		Informs the user whether the player has reported their information correctly. Useful for debugging purposes.
 		:param verbose: determines whether the debugging information should be printed.
@@ -108,14 +131,12 @@ class PlayerVerifier:
 		Verifies the player's name, rating, title.
 		:param verbose: determines whether the debugging information should be printed.
 		"""
-		try:
-			self._retrieve_soup()
-		except requests.exceptions.RequestException:
+		if not self._retrieve_soup() or not self._validate_soup():
 			return
 		self._verify_name()
 		self._verify_title()
 		self._verify_rating()
-		self._check_contains_mistake(verbose)
+		self._check_found_mistake(verbose)
 
 
 def truncate_file(file_to_truncate):
