@@ -1,6 +1,6 @@
 import pandas as pd
 import requests
-import math
+from datetime import date
 from bs4 import BeautifulSoup
 """ From Alice in Wonderland:
 "Beautiful Soup, so rich and green,
@@ -9,23 +9,21 @@ Who for such dainties would not stoop?
 Soup of the evening, beautiful Soup!"
 """
 
-# TODO Rename these constants based on the spreadsheet layout.
-PARTICIPANTS_FILENAME = 'artificial_fide_confirmation.xlsx'
-FIRSTNAME_COLNAME = 'First name'
-SURNAME_COLNAME = 'Last name'
-RATING_COLNAME = 'FIDE rating'
-ID_COLNAME = 'FIDE ID'
-TITLE_COLNAME = 'FIDE title'
+PARTICIPANTS_FILENAME = '117 test responses September 16' + '.xlsx'
+FIRSTNAME_COLNAME = 'What is your first name?'
+SURNAME_COLNAME = 'What is your surname?'
+RATING_COLNAME = 'What is your FIDE ELO rating?'
+ID_COLNAME = 'What is your FIDE ID?'
+TITLE_COLNAME = 'What is your FIDE title? '
 FIDE_WEBPAGE = 'https://ratings.fide.com/profile/'
-VERIFICATION_ISSUE_TRACKER_FILENAME = 'verification_issue_tracker.txt'
-# TODO map typeform abbreviations to FIDE? Implement in code
+VERIFICATION_ISSUE_TRACKER_FILENAME = date.today().strftime("%y%m%d") + '_verification_issue_tracker.txt'
 ABBREVIATION_TO_TITLE = {
 	"GM": "Grandmaster",
 	"IM": "International Master",
 	"FM": "FIDE Master",
 	"CM": "Candidate Master",
 	"WGM": "Woman Grandmaster",
-	"WIM": "Woman International Master",
+	"WIM": "Woman Intl. Master",
 	"WFM": "Woman FIDE Master",
 	"WCM": "Woman Candidate Master",
 	"No title": "None"
@@ -112,10 +110,7 @@ class PlayerVerifier:
 	def _verify_title(self):
 		true_title = self.__fide_soup.find('div', class_='profile-top-info__block__row__header', string='FIDE title:'). \
 			find_next_sibling('div', class_='profile-top-info__block__row__data').text
-		# Treat a 'None' title as a missing title. This depends on how it is represented in the spreadsheet.
-		if true_title == 'None':
-			true_title = float('nan')
-		if self.__player.get_title() != true_title and is_missing_title(self.__player.get_title()) != is_missing_title(true_title):
+		if self.__player.get_title() != true_title:
 			self._log_issue(self.__player.get_title(), 'title', f'FIDE says {true_title}')
 
 	def _check_found_mistake(self, verbose):
@@ -158,11 +153,6 @@ def log_verification_issue(player_name, issue_description):
 		f.write(f'{player_name}: {issue_description}\n')
 
 
-def is_missing_title(title):
-	# Keep in mind that generally nan != nan
-	return isinstance(title, float) and math.isnan(title)
-
-
 def main():
 	truncate_file(VERIFICATION_ISSUE_TRACKER_FILENAME)
 	participants_df = pd.read_excel(PARTICIPANTS_FILENAME)
@@ -174,7 +164,7 @@ def main():
 			participants_df[SURNAME_COLNAME][i],
 			participants_df[RATING_COLNAME][i],
 			participants_df[ID_COLNAME][i],
-			participants_df[TITLE_COLNAME][i],
+			ABBREVIATION_TO_TITLE[participants_df[TITLE_COLNAME][i]],
 		)
 		player_verifier = PlayerVerifier(current_player)
 		player_verifier.verify_player(verbose=True)
